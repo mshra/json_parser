@@ -1,12 +1,22 @@
-use std::env;
+mod lexer;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 1 {
-        panic!("No JSON entered to parse.")
+    // raw json string
+    let json = r#"
+    {
+        "name": "Alice",
+        "age": 30,
+        "height": 5.5,
+        "address": {
+            "city": "Wonderland",
+            "zip": 12345
+        },
+        "is_student": false,
+        "extra": null
     }
+    "#;
 
-    let json_string: &String = &args[1].split_whitespace().collect();
-    dbg!(json_string);
-    ()
+    let tokens = lexer::lexer(String::from(json)).unwrap();
+    println!("{:?}", tokens);
+    println!("{}", json);
 }
