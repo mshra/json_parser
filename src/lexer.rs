@@ -4,6 +4,21 @@ use std::{
 };
 
 #[derive(Debug)]
+pub enum Number {
+    Integer(i64),
+    Float(f64),
+}
+
+impl fmt::Display for Number {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Integer(num) => write!(f, "{}", num),
+            Self::Float(num) => write!(f, "{}", num),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Token {
     LeftCurlyBrace,
     RightCurlyBrace,
@@ -12,8 +27,7 @@ pub enum Token {
     Colon,
     Comma,
     StringToken(String),
-    FloatToken(f64),
-    IntegerToken(i64),
+    Number(Number),
     Null,
     Bool(bool),
 }
@@ -23,13 +37,12 @@ impl fmt::Display for Token {
         match self {
             Token::LeftCurlyBrace => write!(f, "{{"),
             Token::RightCurlyBrace => write!(f, "}}"),
-            Token::LeftSquareBrace => write!(f, "["),
             Token::RightSquareBrace => write!(f, "]"),
+            Token::LeftSquareBrace => write!(f, "["),
             Token::Colon => write!(f, ":"),
             Token::Comma => write!(f, ","),
             Token::StringToken(s) => write!(f, "\"{}\"", s),
-            Token::FloatToken(num) => write!(f, "{}", num),
-            Token::IntegerToken(num) => write!(f, "{}", num),
+            Token::Number(num) => write!(f, "{}", num),
             Token::Null => write!(f, "null"),
             Token::Bool(bool_value) => write!(f, "{}", bool_value),
         }
@@ -77,17 +90,21 @@ pub fn lexer(json_string: String) -> Result<Vec<Token>, LexerError> {
             '}' => tokens.push(Token::RightCurlyBrace),
             ':' => tokens.push(Token::Colon),
             ',' => tokens.push(Token::Comma),
+            '[' => tokens.push(Token::LeftSquareBrace),
+            ']' => tokens.push(Token::RightSquareBrace),
             '"' => {
                 let mut string = String::new();
                 let mut found_string_end = false;
+                let mut preceding_character = ' ';
 
                 while let Some(ch) = characters.next() {
-                    if ch == '"' {
+                    if ch == '"' && preceding_character != '\\' {
                         found_string_end = true;
                         break;
                     }
 
-                    string.push(ch)
+                    string.push(ch);
+                    preceding_character = ch;
                 }
 
                 if !found_string_end {
@@ -96,8 +113,6 @@ pub fn lexer(json_string: String) -> Result<Vec<Token>, LexerError> {
 
                 tokens.push(Token::StringToken(string));
             }
-            '[' => tokens.push(Token::LeftSquareBrace),
-            ']' => tokens.push(Token::RightSquareBrace),
             't' => {
                 let next_three: String = characters.by_ref().take(3).collect();
                 if next_three == "rue" {
@@ -116,11 +131,11 @@ pub fn lexer(json_string: String) -> Result<Vec<Token>, LexerError> {
                     tokens.push(Token::Null);
                 }
             }
-            '0'..='9' => {
+            '-' | '0'..='9' => {
                 let mut number = String::from(char);
 
                 while let Some(ch) = characters.next() {
-                    if ch.is_ascii_digit() || ch == '.' {
+                    if ch.is_ascii_digit() || ch == '.' || ch == 'e' || ch == '-' {
                         number.push(ch);
                     } else {
                         break;
@@ -128,9 +143,9 @@ pub fn lexer(json_string: String) -> Result<Vec<Token>, LexerError> {
                 }
 
                 if number.contains('.') {
-                    tokens.push(Token::FloatToken(number.parse::<f64>()?));
+                    tokens.push(Token::Number(Number::Float(number.parse::<f64>()?)));
                 } else {
-                    tokens.push(Token::IntegerToken(number.parse::<i64>()?));
+                    tokens.push(Token::Number(Number::Integer(number.parse::<i64>()?)))
                 }
             }
             _ => (),
